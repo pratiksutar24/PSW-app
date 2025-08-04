@@ -141,33 +141,114 @@
                 </div>
             </div>
             
+            <!-- Login Form -->
             <form id="login-form" class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">👤 Username</label>
                     <input type="text" id="username" required 
                            class="mobile-input focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                            placeholder="Enter your username">
                 </div>
                 
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
-                    <input type="password" id="password" required 
-                           class="mobile-input focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                           placeholder="Enter your password">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">🔒 Password</label>
+                    <div class="relative">
+                        <input type="password" id="password" required 
+                               class="mobile-input focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
+                               placeholder="Enter your password">
+                        <button type="button" onclick="togglePasswordVisibility()" 
+                                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700">
+                            <span id="password-toggle-icon">👁️</span>
+                        </button>
+                    </div>
                 </div>
                 
-                <div class="flex items-center">
-                    <input type="checkbox" id="remember-me" class="mr-3 text-blue-600">
-                    <label for="remember-me" class="text-sm text-gray-700">Remember me</label>
+                <div class="flex items-center justify-between">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="remember-me" class="mr-2 text-blue-600">
+                        <span class="text-sm text-gray-700">💾 Remember me</span>
+                    </label>
+                    <button type="button" onclick="showSavedLogins()" class="text-blue-600 hover:text-blue-800 text-sm">
+                        📋 Saved Logins
+                    </button>
                 </div>
                 
                 <button type="submit" class="w-full bg-blue-600 text-white touch-button hover:bg-blue-700 focus:ring-2 focus:ring-blue-500">
                     🔐 Secure Login
                 </button>
                 
+                <div class="mt-4">
+                    <button type="button" onclick="showRegistration()" class="w-full bg-green-600 text-white text-sm touch-button hover:bg-green-700 rounded-lg py-2">
+                        ➕ Create New Account
+                    </button>
+                </div>
+            </form>
+
+            <!-- Registration Form (Hidden by default) -->
+            <form id="registration-form" class="space-y-4 hidden">
+                <div class="text-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-900">Create New Account</h2>
+                    <p class="text-sm text-gray-600">Join PSW Assessment Suite</p>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">👤 Full Name</label>
+                    <input type="text" id="reg-fullname" required 
+                           class="mobile-input focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                           placeholder="Enter your full name">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">📧 Email</label>
+                    <input type="email" id="reg-email" required 
+                           class="mobile-input focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                           placeholder="Enter your email">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">👤 Username</label>
+                    <input type="text" id="reg-username" required 
+                           class="mobile-input focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                           placeholder="Choose a username">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">🔒 Password</label>
+                    <div class="relative">
+                        <input type="password" id="reg-password" required 
+                               class="mobile-input focus:ring-2 focus:ring-green-500 focus:border-green-500 pr-10"
+                               placeholder="Create a password">
+                        <button type="button" onclick="toggleRegPasswordVisibility()" 
+                                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700">
+                            <span id="reg-password-toggle-icon">👁️</span>
+                        </button>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        Password should be at least 6 characters
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">🔒 Confirm Password</label>
+                    <input type="password" id="reg-confirm-password" required 
+                           class="mobile-input focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                           placeholder="Confirm your password">
+                </div>
+                
+                <div class="flex items-center">
+                    <input type="checkbox" id="reg-terms" required class="mr-2 text-green-600">
+                    <label for="reg-terms" class="text-sm text-gray-700">
+                        I agree to the Terms of Service and Privacy Policy
+                    </label>
+                </div>
+                
+                <button type="submit" class="w-full bg-green-600 text-white touch-button hover:bg-green-700 focus:ring-2 focus:ring-green-500">
+                    ✅ Create Account
+                </button>
+                
                 <div class="text-center">
-                    <button type="button" onclick="showDemoLogin()" class="text-blue-600 hover:text-blue-800 text-sm touch-button">
-                        Use Demo Credentials
+                    <button type="button" onclick="showLogin()" class="text-green-600 hover:text-green-800 text-sm touch-button">
+                        ← Back to Login
                     </button>
                 </div>
             </form>
@@ -841,11 +922,51 @@
         let encryptionKey = null;
         let isMobile = window.innerWidth <= 768;
 
-        // Demo credentials
-        const demoCredentials = {
-            username: 'demo',
-            password: 'demo123'
-        };
+        // User management
+
+        // User registration and login management
+        function getStoredUsers() {
+            try {
+                const users = localStorage.getItem('pswRegisteredUsers');
+                return users ? JSON.parse(users) : {};
+            } catch (error) {
+                return {};
+            }
+        }
+
+        function saveUser(username, password, email, fullName) {
+            const users = getStoredUsers();
+            users[username] = {
+                password: password,
+                email: email,
+                fullName: fullName,
+                registeredDate: new Date().toISOString(),
+                lastLogin: null
+            };
+            localStorage.setItem('pswRegisteredUsers', JSON.stringify(users));
+        }
+
+        function validateUser(username, password) {
+            const users = getStoredUsers();
+            
+            // Check registered users
+            if (users[username] && users[username].password === password) {
+                // Update last login
+                users[username].lastLogin = new Date().toISOString();
+                localStorage.setItem('pswRegisteredUsers', JSON.stringify(users));
+                
+                return { 
+                    valid: true, 
+                    user: { 
+                        username: username, 
+                        fullName: users[username].fullName,
+                        email: users[username].email 
+                    } 
+                };
+            }
+            
+            return { valid: false, user: null };
+        }
 
         // Mobile-optimized assessment templates
         const assessmentTemplates = {
@@ -1213,10 +1334,165 @@
         }
 
         // Mobile-optimized login system
-        function showDemoLogin() {
-            document.getElementById('username').value = demoCredentials.username;
-            document.getElementById('password').value = demoCredentials.password;
-            showNotification('Demo credentials loaded. Tap "Secure Login" to continue.', 'info');
+
+        function showRegistration() {
+            document.getElementById('login-form').classList.add('hidden');
+            document.getElementById('registration-form').classList.remove('hidden');
+        }
+
+        function showLogin() {
+            document.getElementById('registration-form').classList.add('hidden');
+            document.getElementById('login-form').classList.remove('hidden');
+        }
+
+        function togglePasswordVisibility() {
+            const passwordInput = document.getElementById('password');
+            const toggleIcon = document.getElementById('password-toggle-icon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.textContent = '👁️';
+            }
+        }
+
+        function toggleRegPasswordVisibility() {
+            const passwordInput = document.getElementById('reg-password');
+            const toggleIcon = document.getElementById('reg-password-toggle-icon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                toggleIcon.textContent = '🙈';
+            } else {
+                passwordInput.type = 'password';
+                toggleIcon.textContent = '👁️';
+            }
+        }
+
+        function saveToQuickLogin(username, fullName) {
+            try {
+                const quickLogins = JSON.parse(localStorage.getItem('pswQuickLogins') || '[]');
+                
+                // Remove existing entry for this username
+                const filtered = quickLogins.filter(login => login.username !== username);
+                
+                // Add new entry at the beginning
+                filtered.unshift({
+                    username: username,
+                    fullName: fullName,
+                    lastUsed: new Date().toISOString()
+                });
+                
+                // Keep only last 5 logins
+                const limited = filtered.slice(0, 5);
+                
+                localStorage.setItem('pswQuickLogins', JSON.stringify(limited));
+            } catch (error) {
+                console.warn('Could not save quick login');
+            }
+        }
+
+        function showSavedLogins() {
+            try {
+                const quickLogins = JSON.parse(localStorage.getItem('pswQuickLogins') || '[]');
+                
+                if (quickLogins.length === 0) {
+                    showNotification('No saved logins found. Enable "Remember me" to save logins.', 'info');
+                    return;
+                }
+                
+                let loginHTML = `
+                    <div class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+                        <div class="bg-white rounded-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-6">
+                            <div class="flex justify-between items-center mb-4">
+                                <h2 class="text-xl font-bold text-gray-900">📋 Saved Logins</h2>
+                                <button onclick="closeSavedLogins()" class="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+                            </div>
+                            
+                            <div class="space-y-3">
+                `;
+                
+                quickLogins.forEach(login => {
+                    const lastUsed = new Date(login.lastUsed).toLocaleDateString();
+                    loginHTML += `
+                        <button onclick="useQuickLogin('${login.username}')" 
+                                class="w-full text-left p-3 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="font-semibold text-gray-900">${login.fullName}</div>
+                                    <div class="text-sm text-gray-600">@${login.username}</div>
+                                </div>
+                                <div class="text-xs text-gray-500">
+                                    ${lastUsed}
+                                </div>
+                            </div>
+                        </button>
+                    `;
+                });
+                
+                loginHTML += `
+                            </div>
+                            
+                            <div class="mt-4 pt-4 border-t">
+                                <button onclick="clearSavedLogins()" class="w-full text-red-600 hover:text-red-800 text-sm py-2">
+                                    🗑️ Clear All Saved Logins
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.insertAdjacentHTML('beforeend', loginHTML);
+                
+            } catch (error) {
+                showNotification('Error loading saved logins', 'error');
+            }
+        }
+
+        function closeSavedLogins() {
+            const modal = document.querySelector('.fixed.inset-0.bg-black.bg-opacity-50');
+            if (modal) {
+                modal.remove();
+            }
+        }
+
+        function useQuickLogin(username) {
+            try {
+                const sessionData = JSON.parse(localStorage.getItem('pswMobileSession') || '{}');
+                
+                if (sessionData.username === username && sessionData.expires > Date.now()) {
+                    // Use saved session
+                    document.getElementById('username').value = sessionData.username;
+                    document.getElementById('password').value = sessionData.password;
+                    document.getElementById('remember-me').checked = true;
+                    
+                    closeSavedLogins();
+                    showNotification('🔐 Login credentials loaded from saved session', 'success');
+                } else {
+                    // Just fill username
+                    document.getElementById('username').value = username;
+                    document.getElementById('password').focus();
+                    
+                    closeSavedLogins();
+                    showNotification('👤 Username loaded. Please enter your password.', 'info');
+                }
+            } catch (error) {
+                document.getElementById('username').value = username;
+                document.getElementById('password').focus();
+                closeSavedLogins();
+                showNotification('👤 Username loaded. Please enter your password.', 'info');
+            }
+        }
+
+        function clearSavedLogins() {
+            if (confirm('Are you sure you want to clear all saved logins?')) {
+                localStorage.removeItem('pswQuickLogins');
+                localStorage.removeItem('pswMobileSession');
+                closeSavedLogins();
+                showNotification('🗑️ All saved logins cleared', 'success');
+            }
         }
 
         function handleLogin(event) {
@@ -1231,28 +1507,90 @@
                 return;
             }
             
-            if (username === demoCredentials.username && password === demoCredentials.password) {
-                currentUser = username;
+            const validation = validateUser(username, password);
+            
+            if (validation.valid) {
+                currentUser = validation.user;
                 
+                // Save login credentials if remember me is checked
                 if (rememberMe) {
                     const sessionData = {
                         username: username,
-                        expires: Date.now() + (24 * 60 * 60 * 1000)
+                        password: password, // In real app, use secure token
+                        fullName: validation.user.fullName,
+                        email: validation.user.email,
+                        expires: Date.now() + (30 * 24 * 60 * 60 * 1000) // 30 days
                     };
                     localStorage.setItem('pswMobileSession', JSON.stringify(sessionData));
+                    
+                    // Also save to quick login list
+                    saveToQuickLogin(username, validation.user.fullName);
                 }
                 
                 document.getElementById('login-screen').classList.add('hidden');
                 document.getElementById('main-app').classList.remove('hidden');
-                document.getElementById('current-user').textContent = username;
-                document.getElementById('mobile-user').textContent = username;
+                document.getElementById('current-user').textContent = validation.user.fullName || username;
+                document.getElementById('mobile-user').textContent = validation.user.fullName || username;
                 
                 initializeMobileApp();
-                showNotification('🔐 Welcome to PSW Mobile Suite!', 'success');
+                showNotification(`🔐 Welcome back, ${validation.user.fullName || username}!`, 'success');
                 
             } else {
-                showNotification('Invalid credentials. Please try again.', 'error');
+                showNotification('❌ Invalid username or password. Please try again.', 'error');
             }
+        }
+
+        function handleRegistration(event) {
+            event.preventDefault();
+            
+            const fullName = document.getElementById('reg-fullname').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const username = document.getElementById('reg-username').value.trim();
+            const password = document.getElementById('reg-password').value;
+            const confirmPassword = document.getElementById('reg-confirm-password').value;
+            const termsAccepted = document.getElementById('reg-terms').checked;
+            
+            // Validation
+            if (!fullName || !email || !username || !password || !confirmPassword) {
+                showNotification('Please fill in all fields', 'error');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showNotification('Password must be at least 6 characters long', 'error');
+                return;
+            }
+            
+            if (password !== confirmPassword) {
+                showNotification('Passwords do not match', 'error');
+                return;
+            }
+            
+            if (!termsAccepted) {
+                showNotification('Please accept the Terms of Service', 'error');
+                return;
+            }
+            
+            // Check if username already exists
+            const users = getStoredUsers();
+            if (users[username]) {
+                showNotification('Username already exists. Please choose a different one.', 'error');
+                return;
+            }
+            
+            // Save new user
+            saveUser(username, password, email, fullName);
+            
+            // Auto-login the new user
+            currentUser = { username: username, fullName: fullName, email: email };
+            
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('main-app').classList.remove('hidden');
+            document.getElementById('current-user').textContent = fullName;
+            document.getElementById('mobile-user').textContent = fullName;
+            
+            initializeMobileApp();
+            showNotification(`🎉 Welcome to PSW Suite, ${fullName}! Account created successfully.`, 'success');
         }
 
         function logout() {
@@ -2154,8 +2492,9 @@
 
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
-            // Set up login form
+            // Set up login and registration forms
             document.getElementById('login-form').addEventListener('submit', handleLogin);
+            document.getElementById('registration-form').addEventListener('submit', handleRegistration);
             
             // Check for existing session
             if (!checkExistingSession()) {
@@ -2190,5 +2529,5 @@
             });
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96a05cb180f83c3e',t:'MTc1NDMzNDcwMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96a07bc7d7e446ec',t:'MTc1NDMzNTk3Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

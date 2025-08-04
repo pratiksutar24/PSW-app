@@ -95,6 +95,14 @@
                 <div class="flex justify-center mt-4">
                     <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs md:text-sm font-medium">🔒 Mobile Ready & Secure</span>
                 </div>
+                
+                <!-- PWA Install Button -->
+                <div id="pwa-install-container" class="hidden mt-4 text-center">
+                    <button id="pwa-install-btn" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 text-sm font-medium">
+                        📱 Install App
+                    </button>
+                    <p class="text-xs text-gray-600 mt-1">Install for offline access</p>
+                </div>
             </div>
             
             <!-- Login Form -->
@@ -209,15 +217,7 @@
                 </div>
             </form>
             
-            <div class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h3 class="font-semibold text-blue-900 mb-2 text-sm">📱 Mobile Features:</h3>
-                <ul class="text-xs text-blue-800 space-y-1">
-                    <li>• Touch-optimized interface</li>
-                    <li>• Works offline after login</li>
-                    <li>• Responsive on all devices</li>
-                    <li>• Swipe navigation support</li>
-                </ul>
-            </div>
+
         </div>
     </div>
 
@@ -250,6 +250,10 @@
                             <div class="flex items-center text-xs bg-green-50 px-2 py-1 rounded-lg">
                                 <div class="w-2 h-2 rounded-full bg-green-500 mr-1 pulse"></div>
                                 <span class="text-green-700 font-medium">🔒 Secure</span>
+                            </div>
+                            <div id="pwa-status" class="flex items-center text-xs bg-purple-50 px-2 py-1 rounded-lg">
+                                <div class="w-2 h-2 rounded-full bg-purple-500 mr-1"></div>
+                                <span class="text-purple-700 font-medium">📱 PWA</span>
                             </div>
                             <button onclick="showSettings()" class="p-2 text-gray-600 hover:text-blue-600 rounded-lg" title="Settings">
                                 ⚙️
@@ -2446,6 +2450,141 @@
             }
         }, { passive: false });
 
+        // PWA Service Worker Registration
+        let deferredPrompt;
+        let pwaInstalled = false;
+
+        // Register service worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                // Create service worker inline
+                const swCode = `
+                    const CACHE_NAME = 'psw-suite-v1';
+                    const urlsToCache = [
+                        '/',
+                        'https://cdn.tailwindcss.com'
+                    ];
+
+                    self.addEventListener('install', function(event) {
+                        event.waitUntil(
+                            caches.open(CACHE_NAME)
+                                .then(function(cache) {
+                                    return cache.addAll(urlsToCache);
+                                })
+                        );
+                    });
+
+                    self.addEventListener('fetch', function(event) {
+                        event.respondWith(
+                            caches.match(event.request)
+                                .then(function(response) {
+                                    if (response) {
+                                        return response;
+                                    }
+                                    return fetch(event.request);
+                                }
+                            )
+                        );
+                    });
+                `;
+                
+                const blob = new Blob([swCode], { type: 'application/javascript' });
+                const swUrl = URL.createObjectURL(blob);
+                
+                navigator.serviceWorker.register(swUrl)
+                    .then(function(registration) {
+                        console.log('ServiceWorker registration successful');
+                        showNotification('📱 App ready for offline use!', 'success');
+                    })
+                    .catch(function(err) {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+
+        // PWA Install Prompt
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            
+            // Show install button
+            const installContainer = document.getElementById('pwa-install-container');
+            const installBtn = document.getElementById('pwa-install-btn');
+            
+            if (installContainer && installBtn) {
+                installContainer.classList.remove('hidden');
+                
+                installBtn.addEventListener('click', async () => {
+                    if (deferredPrompt) {
+                        deferredPrompt.prompt();
+                        const { outcome } = await deferredPrompt.userChoice;
+                        
+                        if (outcome === 'accepted') {
+                            showNotification('🎉 App installed successfully!', 'success');
+                            installContainer.classList.add('hidden');
+                            pwaInstalled = true;
+                        }
+                        
+                        deferredPrompt = null;
+                    }
+                });
+            }
+        });
+
+        // Handle app installation
+        window.addEventListener('appinstalled', (evt) => {
+            showNotification('🎉 PSW Suite installed as app!', 'success');
+            const installContainer = document.getElementById('pwa-install-container');
+            if (installContainer) {
+                installContainer.classList.add('hidden');
+            }
+            pwaInstalled = true;
+        });
+
+        // Check if app is running in standalone mode
+        function isPWAInstalled() {
+            return window.matchMedia('(display-mode: standalone)').matches || 
+                   window.navigator.standalone === true ||
+                   pwaInstalled;
+        }
+
+        // PWA Update notification
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                showNotification('🔄 App updated! Refresh to see changes.', 'info');
+            });
+        }
+
+        // Offline/Online detection
+        function updateOnlineStatus() {
+            const pwaStatus = document.getElementById('pwa-status');
+            if (pwaStatus) {
+                if (navigator.onLine) {
+                    pwaStatus.innerHTML = `
+                        <div class="w-2 h-2 rounded-full bg-green-500 mr-1 pulse"></div>
+                        <span class="text-green-700 font-medium">🌐 Online</span>
+                    `;
+                    pwaStatus.className = 'flex items-center text-xs bg-green-50 px-2 py-1 rounded-lg';
+                } else {
+                    pwaStatus.innerHTML = `
+                        <div class="w-2 h-2 rounded-full bg-orange-500 mr-1"></div>
+                        <span class="text-orange-700 font-medium">📱 Offline</span>
+                    `;
+                    pwaStatus.className = 'flex items-center text-xs bg-orange-50 px-2 py-1 rounded-lg';
+                }
+            }
+        }
+
+        window.addEventListener('online', () => {
+            updateOnlineStatus();
+            showNotification('🌐 Back online! Data will sync.', 'success');
+        });
+
+        window.addEventListener('offline', () => {
+            updateOnlineStatus();
+            showNotification('📱 Offline mode - data saved locally.', 'info');
+        });
+
         // Initialize app
         document.addEventListener('DOMContentLoaded', function() {
             // Set up login and registration forms
@@ -2457,6 +2596,18 @@
                 // Show login screen
                 document.getElementById('login-screen').classList.remove('hidden');
             }
+            
+            // Initialize PWA status
+            updateOnlineStatus();
+            
+            // Show PWA status
+            setTimeout(() => {
+                if (isPWAInstalled()) {
+                    showNotification('📱 Running as installed app!', 'success');
+                } else if ('serviceWorker' in navigator) {
+                    showNotification('🌐 Web app ready - install for better experience!', 'info');
+                }
+            }, 2000);
             
             // Close mobile menu when clicking outside
             document.addEventListener('click', function(e) {
@@ -2485,5 +2636,5 @@
             });
         });
     </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96a08c71b3353bd4',t:'MTc1NDMzNjY1OC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'96a0a34f16e53a4d',t:'MTc1NDMzNzU5NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

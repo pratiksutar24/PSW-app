@@ -1,3 +1,22 @@
+// Save user with passwordHash instead of plain password
+async function saveUser(username, password, email, fullName) {
+  try {
+    const passwordHash = await hashPassword(password);
+    const users = getStoredUsers();
+    users[username] = {
+      passwordHash: passwordHash,
+      email: email,
+      fullName: fullName,
+      registeredDate: new Date().toISOString(),
+      lastLogin: null
+    };
+    localStorage.setItem('pswRegisteredUsers', JSON.stringify(users));
+    return true;
+  } catch (err) {
+    console.error("Error saving user:", err);
+    return false;
+  }
+}
 /**
  * Hash a password using SHA-256 before storing
  * This will replace plain-text passwords in future steps

@@ -2,6 +2,7 @@
   "name": "PSW Assessment Suite",
   "short_name": "PSW Suite",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#007bff",
@@ -19,4 +20,3 @@
     }
   ]
 }
-

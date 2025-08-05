@@ -1,3 +1,17 @@
+document.getElementById('login-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+
+  const result = await validateUser(username, password);
+  if (result.valid) {
+    currentUser = result.user;
+    saveToQuickLogin(result.user.username, result.user.fullName);
+    showMainApp();
+  } else {
+    showNotification('Invalid username or password', 'error');
+  }
+});
 document.getElementById('registration-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = document.getElementById('reg-username').value;

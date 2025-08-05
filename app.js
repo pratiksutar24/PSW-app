@@ -1,3 +1,18 @@
+document.getElementById('registration-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('reg-username').value;
+  const password = document.getElementById('reg-password').value;
+  const email = document.getElementById('reg-email').value;
+  const fullName = document.getElementById('reg-fullname').value;
+
+  const ok = await saveUser(username, password, email, fullName);
+  if (ok) {
+    showNotification('Account created', 'success');
+    showLogin();
+  } else {
+    showNotification('Could not create account', 'error');
+  }
+});
 // Validate a login by hashing supplied password and comparing
 async function validateUser(username, password) {
   try {

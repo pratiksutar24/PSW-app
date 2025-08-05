@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PSW Assessment Suite - Mobile Ready</title>
@@ -81,6 +82,9 @@
             }
         }
     </style>
+    <!-- PWA manifest -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#007bff">
 </head>
 <body class="bg-gray-50">
     <!-- Mobile-Optimized Login Screen -->
@@ -3036,7 +3040,10 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+    <!-- Load main app logic -->
+<script src="js/app.js" defer></script>
 </body>
 </html>
+
 
 

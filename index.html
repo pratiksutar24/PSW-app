@@ -2642,7 +2642,401 @@
     navigator.serviceWorker.register("service-worker.js")
       .then(() => console.log("Service Worker Registered"));
   }
+</script><script>
+// ---------- Security helpers ----------
+/**
+ * Hash a password using SHA-256 before storing
+ */
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  return hashHex;
+}
+
+// ---------- Local storage user management ----------
+function getStoredUsers() {
+  try {
+    const users = localStorage.getItem('pswRegisteredUsers');
+    return users ? JSON.parse(users) : {};
+  } catch (error) {
+    console.warn('Could not parse pswRegisteredUsers', error);
+    return {};
+  }
+}
+
+// Save user with passwordHash instead of plain password
+async function saveUser(username, password, email, fullName) {
+  try {
+    const passwordHash = await hashPassword(password);
+    const users = getStoredUsers();
+    users[username] = {
+      passwordHash: passwordHash,
+      email: email,
+      fullName: fullName,
+      registeredDate: new Date().toISOString(),
+      lastLogin: null
+    };
+    localStorage.setItem('pswRegisteredUsers', JSON.stringify(users));
+    return true;
+  } catch (err) {
+    console.error("Error saving user:", err);
+    return false;
+  }
+}
+
+// Validate a login by hashing supplied password and comparing
+async function validateUser(username, password) {
+  try {
+    const passwordHash = await hashPassword(password);
+    const users = getStoredUsers();
+
+    if (users[username] && users[username].passwordHash === passwordHash) {
+      users[username].lastLogin = new Date().toISOString();
+      localStorage.setItem('pswRegisteredUsers', JSON.stringify(users));
+      return {
+        valid: true,
+        user: {
+          username: username,
+          fullName: users[username].fullName,
+          email: users[username].email
+        }
+      };
+    }
+  } catch (err) {
+    console.error("Error validating user:", err);
+  }
+
+  return { valid: false, user: null };
+}
+
+// Optional: migrate plain-text passwords (run once if needed)
+async function migratePlainPasswords() {
+  const usersRaw = localStorage.getItem('pswRegisteredUsers');
+  if (!usersRaw) return;
+  let users;
+  try {
+    users = JSON.parse(usersRaw);
+  } catch (e) {
+    console.warn('No valid users to migrate');
+    return;
+  }
+
+  let didMigrate = false;
+  for (const u of Object.keys(users)) {
+    if (users[u].password && !users[u].passwordHash) {
+      // convert
+      const hashed = await hashPassword(users[u].password);
+      users[u].passwordHash = hashed;
+      delete users[u].password; // remove plain password
+      didMigrate = true;
+    }
+  }
+
+  if (didMigrate) {
+    localStorage.setItem('pswRegisteredUsers', JSON.stringify(users));
+    showNotification('Migrated plain-text passwords to hashed values', 'success');
+  }
+}
+
+// ---------- Quick login/storage helper ----------
+function saveToQuickLogin(username, fullName) {
+  try {
+    const quickLogins = JSON.parse(localStorage.getItem('pswQuickLogins') || '[]');
+    const filtered = quickLogins.filter(login => login.username !== username);
+    filtered.unshift({
+      username: username,
+      fullName: fullName,
+      lastUsed: new Date().toISOString()
+    });
+    const limited = filtered.slice(0, 5);
+    localStorage.setItem('pswQuickLogins', JSON.stringify(limited));
+  } catch (err) {
+    console.warn('Could not save quick login', err);
+  }
+}
+
+// ---------- Minimal UI helpers used by your HTML ----------
+function showNotification(message, type = 'info', timeout = 3000) {
+  // type: 'info'|'success'|'error'
+  let container = document.getElementById('notifications');
+  if (!container) {
+    // fallback: alert
+    console[type === 'error' ? 'error' : 'log'](message);
+    return;
+  }
+  const el = document.createElement('div');
+  el.className = 'p-3 rounded shadow mb-2 text-sm';
+  el.style.maxWidth = '420px';
+  el.style.margin = '0 auto';
+  if (type === 'success') {
+    el.style.background = '#ecfdf5';
+    el.style.color = '#065f46';
+  } else if (type === 'error') {
+    el.style.background = '#fef2f2';
+    el.style.color = '#991b1b';
+  } else {
+    el.style.background = '#eff6ff';
+    el.style.color = '#1e3a8a';
+  }
+  el.textContent = message;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.remove();
+  }, timeout);
+}
+
+function showLogin() {
+  const reg = document.getElementById('registration-form');
+  const login = document.getElementById('login-form');
+  if (reg) reg.classList.add('hidden');
+  if (login) login.classList.remove('hidden');
+}
+
+function showRegistration() {
+  const reg = document.getElementById('registration-form');
+  const login = document.getElementById('login-form');
+  if (login) login.classList.add('hidden');
+  if (reg) reg.classList.remove('hidden');
+}
+
+function showMainApp() {
+  const main = document.getElementById('main-app');
+  const loginScreen = document.getElementById('login-screen');
+  if (loginScreen) loginScreen.classList.add('hidden');
+  if (main) main.classList.remove('hidden');
+}
+
+// Basic logout
+function logout() {
+  currentUser = null;
+  const main = document.getElementById('main-app');
+  const loginScreen = document.getElementById('login-screen');
+  if (main) main.classList.add('hidden');
+  if (loginScreen) loginScreen.classList.remove('hidden');
+  showNotification('Logged out', 'info');
+}
+
+// ---------- Minimal assessment placeholders ----------
+let currentUser = null;
+function startAssessment(type) {
+  // Minimal placeholder - you will replace with real flow later
+  showNotification('Starting assessment: ' + type, 'info');
+  document.getElementById('assessment-title').textContent = type;
+  // show (if exists)
+  const assessmentScreen = document.getElementById('assessment-screen');
+  if (assessmentScreen) assessmentScreen.classList.remove('hidden');
+}
+function generateInterventionPlan() {
+  showNotification('Intervention plan: (placeholder)', 'info');
+}
+function createSocialDiagnosis() {
+  showNotification('Social diagnosis: (placeholder)', 'info');
+}
+function showCrisisResources() {
+  showNotification('Crisis resources: Call local emergency number', 'error', 6000);
+}
+
+// ---------- Registration & Login event handlers ----------
+document.addEventListener('DOMContentLoaded', function() {
+  // Run optional migration quietly (uncomment if needed)
+  // migratePlainPasswords();
+
+  // Registration form
+  const regForm = document.getElementById('registration-form');
+  if (regForm) {
+    regForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('reg-username').value.trim();
+      const password = document.getElementById('reg-password').value;
+      const confirm = document.getElementById('reg-confirm-password').value;
+      const email = document.getElementById('reg-email').value.trim();
+      const fullName = document.getElementById('reg-fullname').value.trim();
+
+      if (!username || !password || !confirm) {
+        showNotification('Please fill required fields', 'error');
+        return;
+      }
+      if (password.length < 6) {
+        showNotification('Password should be at least 6 characters', 'error');
+        return;
+      }
+      if (password !== confirm) {
+        showNotification('Passwords do not match', 'error');
+        return;
+      }
+
+      const users = getStoredUsers();
+      if (users[username]) {
+        showNotification('Username already exists', 'error');
+        return;
+      }
+
+      const ok = await saveUser(username, password, email, fullName);
+      if (ok) {
+        showNotification('Account created. Please login.', 'success');
+        showLogin();
+      } else {
+        showNotification('Failed to create account', 'error');
+      }
+    });
+  }
+
+  // Login form
+  const loginForm = document.getElementById('login-form');
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!username || !password) {
+        showNotification('Enter username and password', 'error');
+        return;
+      }
+
+      const result = await validateUser(username, password);
+      if (result.valid) {
+        currentUser = result.user;
+        saveToQuickLogin(result.user.username, result.user.fullName || result.user.username);
+        showNotification('Login successful', 'success');
+        showMainApp();
+      } else {
+        showNotification('Invalid username or password', 'error');
+      }
+    });
+  }
+
+  // Saved logins button
+  const savedBtn = document.querySelector('[onclick="showSavedLogins()"]');
+  if (savedBtn) {
+    savedBtn.addEventListener('click', showSavedLogins);
+  }
+
+  // Hook up other UI controls if they exist
+  const regToggle = document.querySelector('[onclick="showRegistration()"]');
+  if (regToggle) regToggle.addEventListener('click', showRegistration);
+  const loginToggle = document.querySelector('[onclick="showLogin()"]');
+  if (loginToggle) loginToggle.addEventListener('click', showLogin);
+
+  // PWA install handlers
+  let deferredPrompt;
+  window.addEventListener("beforeinstallprompt", e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    const container = document.getElementById("pwa-install-container");
+    if (container) container.classList.remove("hidden");
+    const btn = document.getElementById("pwa-install-btn");
+    if (btn) {
+      btn.addEventListener('click', async () => {
+        deferredPrompt.prompt();
+        const choice = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        if (choice.outcome === 'accepted') showNotification('App installed', 'success');
+      });
+    }
+  });
+});
+
+// ---------- Saved logins UI ----------
+function closeSavedLogins() {
+  const existing = document.getElementById('saved-logins-overlay');
+  if (existing) existing.remove();
+}
+
+function useQuickLogin(username) {
+  const users = getStoredUsers();
+  if (!users[username]) {
+    showNotification('User not found', 'error');
+    return;
+  }
+  // autofill login form
+  const userEl = document.getElementById('username');
+  if (userEl) userEl.value = username;
+  closeSavedLogins();
+  showNotification('Selected quick login: ' + username, 'info');
+}
+
+function showSavedLogins() {
+  try {
+    const quickLogins = JSON.parse(localStorage.getItem('pswQuickLogins') || '[]');
+    if (quickLogins.length === 0) {
+      showNotification('No saved logins found. Enable "Remember me" to save logins.', 'info');
+      return;
+    }
+
+    // simple overlay
+    closeSavedLogins();
+    const overlay = document.createElement('div');
+    overlay.id = 'saved-logins-overlay';
+    overlay.style.position = 'fixed';
+    overlay.style.left = 0;
+    overlay.style.right = 0;
+    overlay.style.top = 0;
+    overlay.style.bottom = 0;
+    overlay.style.background = 'rgba(0,0,0,0.5)';
+    overlay.style.zIndex = 9999;
+    overlay.style.display = 'flex';
+    overlay.style.alignItems = 'center';
+    overlay.style.justifyContent = 'center';
+
+    const box = document.createElement('div');
+    box.style.background = '#fff';
+    box.style.padding = '16px';
+    box.style.borderRadius = '12px';
+    box.style.minWidth = '280px';
+    box.style.maxWidth = '90%';
+    box.style.maxHeight = '80%';
+    box.style.overflowY = 'auto';
+
+    const title = document.createElement('div');
+    title.textContent = '📋 Saved Logins';
+    title.style.fontWeight = '700';
+    title.style.marginBottom = '8px';
+    box.appendChild(title);
+
+    quickLogins.forEach(login => {
+      const row = document.createElement('button');
+      row.style.display = 'flex';
+      row.style.justifyContent = 'space-between';
+      row.style.width = '100%';
+      row.style.padding = '8px';
+      row.style.border = '1px solid #eee';
+      row.style.borderRadius = '8px';
+      row.style.marginBottom = '8px';
+      row.style.cursor = 'pointer';
+      row.textContent = `${login.fullName || login.username} (@${login.username})`;
+      row.addEventListener('click', () => useQuickLogin(login.username));
+      box.appendChild(row);
+    });
+
+    const closeBtn = document.createElement('div');
+    closeBtn.textContent = 'Close';
+    closeBtn.style.textAlign = 'center';
+    closeBtn.style.marginTop = '8px';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.addEventListener('click', closeSavedLogins);
+    box.appendChild(closeBtn);
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+  } catch (err) {
+    console.warn('Could not show saved logins', err);
+  }
+}
+
+// ---------- Service Worker registration (if present) ----------
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(() => console.log('Service Worker Registered'))
+      .catch(e => console.warn('SW registration failed', e));
+  });
+}
 </script>
 </body>
 </html>
+
 

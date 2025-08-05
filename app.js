@@ -1,3 +1,27 @@
+// Validate a login by hashing supplied password and comparing
+async function validateUser(username, password) {
+  try {
+    const passwordHash = await hashPassword(password);
+    const users = getStoredUsers();
+
+    if (users[username] && users[username].passwordHash === passwordHash) {
+      users[username].lastLogin = new Date().toISOString();
+      localStorage.setItem('pswRegisteredUsers', JSON.stringify(users));
+      return {
+        valid: true,
+        user: {
+          username: username,
+          fullName: users[username].fullName,
+          email: users[username].email
+        }
+      };
+    }
+  } catch (err) {
+    console.error("Error validating user:", err);
+  }
+
+  return { valid: false, user: null };
+}
 // Save user with passwordHash instead of plain password
 async function saveUser(username, password, email, fullName) {
   try {

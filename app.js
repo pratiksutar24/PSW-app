@@ -91,14 +91,14 @@ function getStoredUsers() {
 }
 
 /**
- * Save user. If you want per-user salt, set saltHex here (recommended).
- */
+ // Save user with per-user random salt (recommended)
 async function saveUser(username, password, email = '', fullName = '') {
   try {
     const passwordHash = await hashPassword(password);
-    // Optionally generate per-user salt (uncomment if you want per-user salt)
-    // const salt = crypto.getRandomValues(new Uint8Array(16)); const saltHex = bytesToHex(salt);
-    const saltHex = null;
+
+    // Generate per-user random salt (16 bytes) and convert to hex
+    const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+    const saltHex = bytesToHex(saltBytes);
 
     const users = getStoredUsers();
     users[username] = {
@@ -107,7 +107,7 @@ async function saveUser(username, password, email = '', fullName = '') {
       fullName,
       registeredDate: new Date().toISOString(),
       lastLogin: null,
-      saltHex
+      saltHex // store per-user salt for AES key derivation
     };
     localStorage.setItem('pswRegisteredUsers', JSON.stringify(users));
     return true;
@@ -116,6 +116,7 @@ async function saveUser(username, password, email = '', fullName = '') {
     return false;
   }
 }
+
 
 /**
  * Validate credentials. Returns { valid, user } where user contains passwordHash and optional saltHex.

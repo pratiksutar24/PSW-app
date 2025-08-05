@@ -11,5 +11,5 @@ A mobile-ready Progressive Web App (PWA) for psychiatric social work assessments
 ## Setup
 1. Clone the repo:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/PSW-app.git
+   git clone https://github.com/pratiksutar24/PSW-app.git
    cd PSW-app

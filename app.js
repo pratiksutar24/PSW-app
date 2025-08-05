@@ -1,18 +1,17 @@
 // js/app.js
+// PSW app client logic: auth (hashed passwords), per-user salt, AES-GCM encryption for assessments
+
 // ------------------ Crypto helpers (SHA-256 & AES-GCM) ------------------
 
-/**
- * Hash a password using SHA-256 -> returns hex string
- */
+/** Hash a password using SHA-256 -> hex string */
 async function hashPassword(password) {
   const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  const data = encoder.encode(password || '');
+  const buffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(buffer)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// hex <-> bytes helpers
+/** Convert hex string to Uint8Array */
 function hexToBytes(hex = '') {
   if (!hex) return new Uint8Array();
   const bytes = new Uint8Array(hex.length / 2);
@@ -21,83 +20,73 @@ function hexToBytes(hex = '') {
   }
   return bytes;
 }
-function bytesToHex(bytes) {
+
+/** Convert Uint8Array (or array-like) to hex string */
+function bytesToHex(bytes = []) {
   return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
  * Derive AES-GCM key (256-bit) from passwordHash using PBKDF2.
- * Uses per-user salt if provided (recommended).
+ * - passwordHash: hex string (SHA-256)
+ * - userSaltHex: hex string (per-user random salt). If null, uses a static fallback salt.
  */
 async function getAesKeyFromHash(passwordHash, userSaltHex = null) {
   const raw = hexToBytes(passwordHash);
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    raw,
-    { name: "PBKDF2" },
-    false,
-    ["deriveKey"]
-  );
-
-  const saltBytes = userSaltHex ? hexToBytes(userSaltHex) : new TextEncoder().encode("psw-app-static-salt-v1");
-  const derivedKey = await crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      salt: saltBytes,
-      iterations: 150000,
-      hash: "SHA-256"
-    },
+  const keyMaterial = await crypto.subtle.importKey('raw', raw, { name: 'PBKDF2' }, false, ['deriveKey']);
+  const salt = userSaltHex ? hexToBytes(userSaltHex) : new TextEncoder().encode('psw-app-static-salt-v1');
+  const derived = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: salt, iterations: 150000, hash: 'SHA-256' },
     keyMaterial,
-    { name: "AES-GCM", length: 256 },
+    { name: 'AES-GCM', length: 256 },
     false,
-    ["encrypt", "decrypt"]
+    ['encrypt', 'decrypt']
   );
-  return derivedKey;
+  return derived;
 }
 
-/**
- * Encrypt JSON data with AES-GCM. Returns { iv: hex, ct: hex }.
- */
+/** Encrypt JSON-serializable data with AES-GCM -> { iv: hex, ct: hex } */
 async function encryptData(data, passwordHash, userSaltHex = null) {
+  if (!passwordHash) throw new Error('Missing passwordHash for encryption');
   const key = await getAesKeyFromHash(passwordHash, userSaltHex);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const iv = crypto.getRandomValues(new Uint8Array(12)); // 96-bit IV
   const encoded = new TextEncoder().encode(JSON.stringify(data));
-  const ciphertext = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
-  return { iv: bytesToHex(iv), ct: bytesToHex(new Uint8Array(ciphertext)) };
+  const cipherBuffer = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+  return { iv: bytesToHex(iv), ct: bytesToHex(new Uint8Array(cipherBuffer)) };
 }
 
-/**
- * Decrypt AES-GCM payload and parse JSON.
- */
+/** Decrypt AES-GCM payload { iv, ct } and parse JSON */
 async function decryptData(encrypted, passwordHash, userSaltHex = null) {
   if (!encrypted || !encrypted.iv || !encrypted.ct) throw new Error('Invalid encrypted payload');
   const key = await getAesKeyFromHash(passwordHash, userSaltHex);
   const iv = hexToBytes(encrypted.iv);
   const ct = hexToBytes(encrypted.ct).buffer;
-  const decryptedBuffer = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, ct);
-  return JSON.parse(new TextDecoder().decode(decryptedBuffer));
+  const plainBuffer = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ct);
+  return JSON.parse(new TextDecoder().decode(plainBuffer));
 }
 
-// ------------------ Local user storage and auth ------------------
+// ------------------ Local user storage & auth ------------------
 
+/** Return users object from localStorage or {} */
 function getStoredUsers() {
   try {
     const raw = localStorage.getItem('pswRegisteredUsers');
     return raw ? JSON.parse(raw) : {};
   } catch (err) {
-    console.warn('Could not parse pswRegisteredUsers', err);
+    console.warn('getStoredUsers parse failed', err);
     return {};
   }
 }
 
 /**
- // Save user with per-user random salt (recommended)
+ * Save user with per-user salt.
+ * Stores: { passwordHash, email, fullName, registeredDate, lastLogin, saltHex }
+ */
 async function saveUser(username, password, email = '', fullName = '') {
+  if (!username || !password) return false;
   try {
     const passwordHash = await hashPassword(password);
-
-    // Generate per-user random salt (16 bytes) and convert to hex
-    const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+    const saltBytes = crypto.getRandomValues(new Uint8Array(16)); // 16 bytes salt
     const saltHex = bytesToHex(saltBytes);
 
     const users = getStoredUsers();
@@ -107,19 +96,18 @@ async function saveUser(username, password, email = '', fullName = '') {
       fullName,
       registeredDate: new Date().toISOString(),
       lastLogin: null,
-      saltHex // store per-user salt for AES key derivation
+      saltHex
     };
     localStorage.setItem('pswRegisteredUsers', JSON.stringify(users));
     return true;
   } catch (err) {
-    console.error('Error saving user:', err);
+    console.error('saveUser error', err);
     return false;
   }
 }
 
-
 /**
- * Validate credentials. Returns { valid, user } where user contains passwordHash and optional saltHex.
+ * Validate credentials and return { valid, user } where user includes passwordHash and saltHex
  */
 async function validateUser(username, password) {
   try {
@@ -129,22 +117,67 @@ async function validateUser(username, password) {
       users[username].lastLogin = new Date().toISOString();
       localStorage.setItem('pswRegisteredUsers', JSON.stringify(users));
       const u = users[username];
-      return { valid: true, user: { username, fullName: u.fullName, email: u.email, passwordHash: u.passwordHash, saltHex: u.saltHex || null } };
+      return {
+        valid: true,
+        user: {
+          username,
+          fullName: u.fullName,
+          email: u.email,
+          passwordHash: u.passwordHash,
+          saltHex: u.saltHex || null
+        }
+      };
     }
   } catch (err) {
-    console.error('Error validating user:', err);
+    console.error('validateUser error', err);
   }
   return { valid: false, user: null };
 }
 
+/** Optional migration: convert plain-text password field to passwordHash (no salt assigned) */
+async function migratePlainPasswords() {
+  const raw = localStorage.getItem('pswRegisteredUsers');
+  if (!raw) return;
+  let users;
+  try {
+    users = JSON.parse(raw);
+  } catch (err) {
+    console.warn('migratePlainPasswords parse failed', err);
+    return;
+  }
+  let changed = false;
+  for (const u of Object.keys(users)) {
+    if (users[u].password && !users[u].passwordHash) {
+      users[u].passwordHash = await hashPassword(users[u].password);
+      delete users[u].password;
+      changed = true;
+    }
+    if (!users[u].saltHex) {
+      // generate salt for migrated user to move forward
+      const saltBytes = crypto.getRandomValues(new Uint8Array(16));
+      users[u].saltHex = bytesToHex(saltBytes);
+      changed = true;
+    }
+  }
+  if (changed) {
+    localStorage.setItem('pswRegisteredUsers', JSON.stringify(users));
+    showNotification('Migration complete: passwords hashed and salts added', 'success');
+  }
+}
+
 // ------------------ Assessment encryption wrappers ------------------
 
+/**
+ * Save encrypted assessments under key 'assessments_<username>'
+ * assessmentsData is JSON-serializable (object or array)
+ */
 async function saveAssessmentForUser(username, passwordHash, assessmentsData, userSaltHex = null) {
   if (!username || !passwordHash) throw new Error('Missing username or passwordHash');
   const encrypted = await encryptData(assessmentsData, passwordHash, userSaltHex);
   localStorage.setItem(`assessments_${username}`, JSON.stringify(encrypted));
 }
 
+/** Load & decrypt assessments for a user; returns original data or null */
 async function loadAssessmentForUser(username, passwordHash, userSaltHex = null) {
   const raw = localStorage.getItem(`assessments_${username}`);
   if (!raw) return null;
@@ -152,11 +185,12 @@ async function loadAssessmentForUser(username, passwordHash, userSaltHex = null)
     const encrypted = JSON.parse(raw);
     return await decryptData(encrypted, passwordHash, userSaltHex);
   } catch (err) {
-    console.error('Failed to decrypt assessments', err);
+    console.error('loadAssessmentForUser decrypt failed', err);
     return null;
   }
 }
 
+/** Append a single assessment to stored array (creates array if none) */
 async function addAssessmentForUser(username, passwordHash, singleAssessment, userSaltHex = null) {
   const existing = (await loadAssessmentForUser(username, passwordHash, userSaltHex)) || [];
   const arr = Array.isArray(existing) ? existing : (existing ? [existing] : []);
@@ -171,8 +205,10 @@ function saveToQuickLogin(username, fullName) {
     const q = JSON.parse(localStorage.getItem('pswQuickLogins') || '[]');
     const filtered = q.filter(x => x.username !== username);
     filtered.unshift({ username, fullName, lastUsed: new Date().toISOString() });
-    localStorage.setItem('pswQuickLogins', JSON.stringify(filtered.slice(0,5)));
-  } catch (err) { console.warn('saveToQuickLogin failed', err); }
+    localStorage.setItem('pswQuickLogins', JSON.stringify(filtered.slice(0, 5)));
+  } catch (err) {
+    console.warn('saveToQuickLogin failed', err);
+  }
 }
 
 function showNotification(message, type = 'info', timeout = 3000) {
@@ -229,15 +265,19 @@ function showCrisisResources() { showNotification('Crisis resources: call emerge
 
 // ------------------ DOM wiring ------------------
 document.addEventListener('DOMContentLoaded', function () {
+  // Uncomment to migrate existing plain-password users (one-time)
+  // migratePlainPasswords();
+
+  // Registration
   const regForm = document.getElementById('registration-form');
   if (regForm) {
     regForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const username = (document.getElementById('reg-username')||{}).value?.trim() || '';
-      const password = (document.getElementById('reg-password')||{}).value || '';
-      const confirm = (document.getElementById('reg-confirm-password')||{}).value || '';
-      const email = (document.getElementById('reg-email')||{}).value?.trim() || '';
-      const fullName = (document.getElementById('reg-fullname')||{}).value?.trim() || '';
+      const username = (document.getElementById('reg-username') || {}).value?.trim() || '';
+      const password = (document.getElementById('reg-password') || {}).value || '';
+      const confirm = (document.getElementById('reg-confirm-password') || {}).value || '';
+      const email = (document.getElementById('reg-email') || {}).value?.trim() || '';
+      const fullName = (document.getElementById('reg-fullname') || {}).value?.trim() || '';
 
       if (!username || !password || !confirm) { showNotification('Please fill required fields', 'error'); return; }
       if (password.length < 6) { showNotification('Password must be at least 6 chars', 'error'); return; }
@@ -252,12 +292,13 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
+  // Login
   const loginForm = document.getElementById('login-form');
   if (loginForm) {
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const username = (document.getElementById('username')||{}).value?.trim() || '';
-      const password = (document.getElementById('password')||{}).value || '';
+      const username = (document.getElementById('username') || {}).value?.trim() || '';
+      const password = (document.getElementById('password') || {}).value || '';
       if (!username || !password) { showNotification('Enter username and password', 'error'); return; }
 
       const result = await validateUser(username, password);
@@ -272,7 +313,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // quick UI wiring
+  // UI wiring for quick links
   const savedBtn = document.querySelector('[onclick="showSavedLogins()"]');
   if (savedBtn) savedBtn.addEventListener('click', showSavedLogins);
   const regToggle = document.querySelector('[onclick="showRegistration()"]');
@@ -280,7 +321,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const loginToggle = document.querySelector('[onclick="showLogin()"]');
   if (loginToggle) loginToggle.addEventListener('click', showLogin);
 
-  // PWA prompt
+  // PWA install prompt
   let deferredPrompt = null;
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
@@ -301,12 +342,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // ------------------ Saved logins overlay ------------------
 function closeSavedLogins() { const ex = document.getElementById('saved-logins-overlay'); if (ex) ex.remove(); }
+
 function useQuickLogin(username) {
   const users = getStoredUsers();
   if (!users[username]) { showNotification('User not found', 'error'); return; }
   const userEl = document.getElementById('username'); if (userEl) userEl.value = username;
   closeSavedLogins(); showNotification('Selected quick login: ' + username, 'info');
 }
+
 function showSavedLogins() {
   try {
     const quickLogins = JSON.parse(localStorage.getItem('pswQuickLogins') || '[]');

@@ -1,3 +1,16 @@
+function startAssessment(type) {
+  const container = document.getElementById('assessment-screen');
+  if (container) container.classList.remove('hidden');
+
+  const assessmentData = assessments[type];
+  if (!assessmentData || !assessmentData.questions) {
+    alert("Assessment type not found!");
+    return;
+  }
+
+  // Render the assessment
+  renderAssessment(type, assessmentData.questions, 'assessment-container');
+}
 // js/assessments.js
 
 const assessments = {

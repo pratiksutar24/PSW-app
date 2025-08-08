@@ -252,6 +252,8 @@ function logout() {
   showNotification('Logged out', 'info');
 }
 
+// Example: Render Career Assessment
+renderAssessment("Career Assessment (RIASEC)", assessments["Career Assessment (RIASEC)"].questions, "assessment-container");
 // ------------------ Minimal assessment placeholders ------------------
 let currentUser = null;
 function startAssessment(type) {
